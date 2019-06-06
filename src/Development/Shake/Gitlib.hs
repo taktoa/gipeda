@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings, DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeFamilies #-}
 module Development.Shake.Gitlib
     ( defaultRuleGitLib
     , getGitReference
@@ -45,22 +45,10 @@ newtype IsGitAncestorQ = IsGitAncestorQ (RepoPath, RefName, RefName)
 newtype GetGitMergeBase = GetGitMergeBase (RepoPath, RefName, RefName)
     deriving (Typeable,Eq,Hashable,Binary,NFData,Show)
 
-instance Rule GetGitReferenceQ GitSHA where
-    storedValue _ (GetGitReferenceQ (repoPath, name)) = do
-        Just . GitSHA <$> getGitReference' repoPath name
-
-instance Rule GetGitFileRefQ (Maybe T.Text) where
-    storedValue _ (GetGitFileRefQ (repoPath, name, filename)) = do
-        ref' <- getGitReference' repoPath name
-        Just <$> getGitFileRef' repoPath ref' filename
-
-instance Rule IsGitAncestorQ Bool where
-    storedValue _ (IsGitAncestorQ (repoPath, ancestor, child)) = do
-        Just <$> isGitAncestor' repoPath ancestor child
-
-instance Rule GetGitMergeBase GitSHA where
-    storedValue _ (GetGitMergeBase (repoPath, baseBranchName, featureBranchName)) = do
-        Just <$> getGitMergeBase' repoPath baseBranchName featureBranchName
+type instance RuleResult GetGitReferenceQ = GitSHA
+type instance RuleResult GetGitFileRefQ   = Maybe T.Text
+type instance RuleResult IsGitAncestorQ   = Bool
+type instance RuleResult GetGitMergeBase  = GitSHA
 
 getGitReference :: RepoPath -> String -> Action String
 getGitReference repoPath refName = do
@@ -143,13 +131,12 @@ readGitFile repoPath fn = do
 
 defaultRuleGitLib :: Rules ()
 defaultRuleGitLib = do
-    rule $ \(GetGitReferenceQ (repoPath, refName)) -> Just $ liftIO $
+    addUserRule $ \(GetGitReferenceQ (repoPath, refName)) -> Just $ do
         GitSHA <$> getGitReference' repoPath refName
-    rule $ \(GetGitFileRefQ (repoPath, refName, fn)) -> Just $ do
+    addUserRule $ \(GetGitFileRefQ (repoPath, refName, fn)) -> Just $ do
         GitSHA ref' <- apply1 $ GetGitReferenceQ (repoPath, "HEAD")
         liftIO $ getGitFileRef' repoPath ref' fn
-    rule $ \(IsGitAncestorQ (repoPath, ancName, childName)) -> Just $ liftIO $
+    addUserRule $ \(IsGitAncestorQ (repoPath, ancName, childName)) -> Just $ do
         isGitAncestor' repoPath ancName childName
-    rule $ \(GetGitMergeBase (repoPath, baseBranchName, featureBranchName)) -> Just $ liftIO $
+    addUserRule $ \(GetGitMergeBase (repoPath, baseBranchName, featureBranchName)) -> Just $ do
         getGitMergeBase' repoPath baseBranchName featureBranchName
-

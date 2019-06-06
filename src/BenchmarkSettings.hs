@@ -7,6 +7,7 @@ import qualified Data.Vector as V
 import Data.Functor
 import Control.Applicative
 import Control.Monad
+import Data.Semigroup
 import Data.Monoid
 import Data.Maybe
 import GHC.Generics (Generic)
@@ -41,9 +42,12 @@ defaultBenchSettings = BenchSettings True "" Nothing False IntegralNT "" 3 True
 newtype S = S { unS :: BenchName -> BenchSettings }
 newtype SM = SM (BenchName -> (BenchSettings -> BenchSettings))
 
+instance Semigroup SM where
+    (SM f) <> (SM g) = SM (\n -> g n . f n)
+
 instance Monoid SM where
     mempty = SM (const id)
-    mappend (SM f) (SM g) = SM (\n -> g n . f n)
+    mappend = (<>)
 
 instance FromJSON NumberType where
     parseJSON = withText "type" $ \t -> case t of

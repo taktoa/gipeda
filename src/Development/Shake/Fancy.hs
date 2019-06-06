@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, ConstraintKinds #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, ConstraintKinds, GADTs #-}
 module Development.Shake.Fancy
     ( module Development.Shake
 
@@ -55,6 +55,7 @@ import System.Console.Regions
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Control.Monad
+import Control.Monad.Fail
 import Control.Applicative
 import Data.List
 
@@ -73,7 +74,7 @@ data FancyEnv = FancyEnv
 
 -- | Wrapper around 'S.Action'
 newtype Action a = Action (ReaderT FancyEnv S.Action a)
-    deriving (Monad, Applicative, Functor, MonadIO)
+    deriving (Monad, Applicative, Functor, MonadIO, MonadFail)
 
 runAction :: Action a -> FancyEnv -> S.Action a
 runAction (Action fa) = runReaderT fa
@@ -171,7 +172,7 @@ cmdWrap :: String -> S.Action a -> Action a
 cmdWrap cmd act =
     describe (quietly act) '!' ("running " ++ cmd)
 
-addOracle :: (S.ShakeValue q, S.ShakeValue a) => (q -> Action a) -> S.Rules (q -> Action a)
+addOracle :: (RuleResult q ~ a, ShakeValue q, ShakeValue a) => (q -> Action a) -> Rules (q -> Action a)
 addOracle action = do
     query <- S.addOracle (\q -> wrapAction (action q) (show q))
     return $ liftAction . query

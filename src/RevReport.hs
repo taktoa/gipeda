@@ -31,8 +31,8 @@ revReportMain (this:parents) = do
     msg <- fromStdout <$> git ["show", "--format=%s", "-s", this]
     dateS <- fromStdout <$> git ["show", "--format=%ct","-s",this]
     date <- case readMaybe dateS of
-	Just date -> return date
-	Nothing -> error $ "Could not parse date " ++ show dateS
+        Just date -> return date
+        Nothing -> error $ "Could not parse date " ++ show dateS
 
     let rep = createReport settings this parents thisM parentM log msg date
     let doc = emptyGlobalReport { revisions = Just (M.singleton this rep) }
